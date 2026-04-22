@@ -15,12 +15,13 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Generate Data
+      - name: Debug and Run
         run: |
-          echo "--- 调试：开始打印当前目录文件 ---"
-          ls -R scripts/
-          echo "--- 调试：结束 ---"
-          node scripts/generate-data.js
+          echo "=== 正在检查 scripts 目录下的文件 ==="
+          ls -F scripts/
+          echo "=== 正在运行脚本 ==="
+          # 如果你的文件叫 generate-index.js，就填下面这个；如果叫 data，就填 data
+          node scripts/generate-index.js
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
