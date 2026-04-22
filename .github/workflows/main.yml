@@ -15,8 +15,12 @@ jobs:
         with:
           node-version: '16'
 
-      - name: Generate Effects Index
-        run: node scripts/generate-index.js # 运行扫描脚本
+      - name: Generate Data
+        run: |
+          echo "--- 调试：开始打印当前目录文件 ---"
+          ls -R scripts/
+          echo "--- 调试：结束 ---"
+          node scripts/generate-data.js
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
