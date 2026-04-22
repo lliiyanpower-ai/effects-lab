@@ -2,28 +2,29 @@ name: Build and Deploy Gallery
 
 on:
   push:
-    branches: [ main ] # 只有代码推送到主分支时触发
+    branches:
+      - main # 确保这是你的主分支名字
+
+permissions:
+  contents: write # 解决 403 Permission Denied 的关键！
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '20'
 
-      - name: Debug and Run
-        run: |
-          echo "=== 正在检查 scripts 目录下的文件 ==="
-          ls -F scripts/
-          echo "=== 正在运行脚本 ==="
-          # 如果你的文件叫 generate-index.js，就填下面这个；如果叫 data，就填 data
-          node scripts/generate-index.js
+      - name: Generate Data
+        run: node scripts/generate-index.js # 确保路径和文件名完全对应
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: . # 将整个项目部署到 Pages
+          folder: . # 表示部署整个仓库目录，如果你的成品都在 dist 里，请改为 dist
+          branch: gh-pages
