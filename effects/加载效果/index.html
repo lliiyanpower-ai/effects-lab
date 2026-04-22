@@ -1,1 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高级明亮风 - 自定义镂空蒙版加载器</title>
+    
+    <!-- 引入 Tailwind CSS 方便排版 UI 面板 -->
+    <script src="https://cdn.tailwindcss.com"></script>
 
+    <style>
+        /* =========================================
+           基础重置与明亮风底色
+        ========================================= */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { 
+            width: 100vw; height: 100vh; 
+            overflow: hidden; /* 加载时锁定滚动 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc; /* 极浅的蓝灰色底色，营造明亮高级感 */
+        }
+
+        /* =========================================
+           Canvas 加载器层 (核心视效)
+        ========================================= */
+        #loader-canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1000;
+            pointer-events: none; /* 让鼠标事件穿透给下方的控制面板 */
+            /* 初始状态：通过 CSS 滤镜控制整体画面的模糊和亮度，模拟对焦 */
+            filter: blur(20px) brightness(0.7) saturate(0.5);
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* =========================================
+           进度数字显示区
+        ========================================= */
+        #progress-wrapper {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1001;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #progress-num {
+            font-size: 4rem;
+            font-weight: 200; /* 极细字体，高级感标配 */
+            color: #ffffff;
+            letter-spacing: -2px;
+            font-variant-numeric: tabular-nums;
+            /* 给文字加一点阴影，防止背景太亮时看不清 */
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        #progress-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.4em;
+            color: rgba(255,255,255,0.8);
+            margin-top: 5px;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        /* =========================================
+           配置面板 (毛玻璃 UI)
+        ========================================= */
+        #config-panel {
+            position: absolute;
+            bottom: 30px; right: 30px;
+            width: 320px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+            z-index: 2000;
+            /* 保证面板在顶层且可交互 */
+            pointer-events: auto; 
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        
+        .panel-hidden {
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none !important;
+        }
+
+        .upload-group { margin-bottom: 16px; }
+        .upload-label {
+            display: block;
+            font-size: 12px; font-weight: 600; color: #475569;
+            margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;
+        }
+        /* 美化上传按钮 */
+        .file-input-wrapper {
+            position: relative;
+            width: 100%; height: 40px;
+            background: #ffffff; border: 1px dashed #cbd5e1; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #64748b; font-size: 13px; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .file-input-wrapper:hover {
+            border-color: #3b82f6; color: #3b82f6; background: #eff6ff;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer;
+        }
+
+        .btn-restart {
+            width: 100%; height: 44px; margin-top: 10px;
+            background: #0f172a; color: white; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-restart:hover { background: #1e293b; }
+        .btn-restart:active { transform: scale(0.98); }
+
+        /* =========================================
+           真实网页内容层 (加载完毕后展示)
+        ========================================= */
+        #main-content {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden;
+            transition: opacity 1s ease-in-out;
+            background-color: #ffffff;
+            z-index: 10;
+        }
+        #main-content h1 { font-size: 4rem; color: #0f172a; font-weight: 800; letter-spacing: -1px; }
+        #main-content p { font-size: 1.2rem; color: #64748b; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <!-- 真实网页内容 (底层) -->
+    <div id="main-content">
+        <h1>Visionary Design</h1>
+        <p>欢迎来到充满光影与高级感的数字世界。</p>
+    </div>
+
+    <!-- Canvas 加载器核心层 (上层) -->
+    <canvas id="loader-canvas"></canvas>
+
+    <!-- 进度显示 -->
+    <div id="progress-wrapper">
+        <div id="progress-num">0%</div>
+        <div id="progress-label">Revealing</div>
+    </div>
+
+    <!-- UI 配置面板 -->
+    <div id="config-panel">
+        <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-3">
+            <h2 class="text-sm font-bold text-gray-800 tracking-wide">⚙️ 动效控制台</h2>
+            <button id="btn-close-panel" class="text-gray-400 hover:text-gray-800 text-xl leading-none">&times;</button>
+        </div>
+
+        <div class="upload-group">
+            <label class="upload-label">1. 上传高清背景图 (JPG/PNG)</label>
+            <div class="file-input-wrapper">
+                <span id="bg-file-name">点击选择图片...</span>
+                <input type="file" id="upload-bg" accept="image/*">
+            </div>
+        </div>
+
+        <div class="upload-group">
+            <label class="upload-label">2. 上传蒙版形状 (黑白/透明 PNG)</label>
+            <div class="file-input-wrapper">
+                <span id="mask-file-name">点击选择蒙版...</span>
+                <input type="file" id="upload-mask" accept="image/png">
+            </div>
+            <p class="text-[10px] text-gray-500 mt-1.5 leading-tight">提示：蒙版图须为透明底，黑色或白色实体的 PNG 图片。形状越不规则越高级。</p>
+        </div>
+
+        <button id="btn-restart" class="btn-restart">重新播放加载动效</button>
+    </div>
+
+    <script>
+        /**
+         * ==========================================
+         * 🎨 核心逻辑与 Canvas 图像处理
+         * ==========================================
+         */
+
+        // --- 默认素材 (Unsplash 高清图 + Base64 默认树叶蒙版) ---
+        // 为了确保第一次打开网页就有高级效果，这里内置了默认图
+        let defaultBgUrl = "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=2560&auto=format&fit=crop"; 
+        
+        // 这是一个极简的、边缘平滑的抽象树叶/水滴形状的 SVG 转 Base64 (作为默认蒙版)
+        let defaultMaskUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj4KICA8cGF0aCBmaWxsPSJibGFjayIgZD0iTTEwMCwyMCBDMTUwLDUwIDE4MCwxMDAgMTAwLDE4MCBDMjAsMTAwIDUwLDUwIDEwMCwyMCBaIiAvPgo8L3N2Zz4=";
+
+        // 获取 DOM 元素
+        const canvas = document.getElementById('loader-canvas');
+        const ctx = canvas.getContext('2d', { alpha: true }); // 必须开启 alpha
+        const progressNum = document.getElementById('progress-num');
+        const progressWrapper = document.getElementById('progress-wrapper');
+        const mainContent = document.getElementById('main-content');
+        
+        // UI 元素
+        const uploadBgInput = document.getElementById('upload-bg');
+        const uploadMaskInput = document.getElementById('upload-mask');
+        const btnRestart = document.getElementById('btn-restart');
+        const configPanel = document.getElementById('config-panel');
+        const btnClosePanel = document.getElementById('btn-close-panel');
+
+        // 动画与图像对象引用
+        let animationFrameId;
+        let bgImageObj = new Image();
+        let maskImageObj = new Image();
+        bgImageObj.crossOrigin = "Anonymous"; 
+        maskImageObj.crossOrigin = "Anonymous";
+
+        // 状态变量
+        let canvasW, canvasH;
+        let isAnimating = false;
+
+        // --- 初始化与自适应 ---
+        function resizeCanvas() {
+            canvasW = window.innerWidth;
+            canvasH = window.innerHeight;
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+            
+            // 如果动画不在播放中，重绘当前静止帧以防变形
+            if(!isAnimating && bgImageObj.complete && maskImageObj.complete) {
+               // 这里可以写一个静态重绘，通常加载完就隐藏了，所以影响不大
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- 核心：加载图像资源 (Promise化) ---
+        function loadImage(imgObj, url) {
+            return new Promise((resolve, reject) => {
+                imgObj.onload = () => resolve(imgObj);
+                imgObj.onerror = reject;
+                imgObj.src = url;
+            });
+        }
+
+        /**
+         * --- 核心：计算 Background-size: cover 的绘制参数 ---
+         * 无论用户上传什么比例的图片，都能完美铺满全屏，不变形。
+         */
+        function getCoverDimensions(imgW, imgH, canvasW, canvasH) {
+            const imgRatio = imgW / imgH;
+            const canvasRatio = canvasW / canvasH;
+            let drawW, drawH, drawX, drawY;
+
+            if (canvasRatio > imgRatio) {
+                // 画布比图片宽：宽度铺满，高度截取
+                drawW = canvasW;
+                drawH = canvasW / imgRatio;
+                drawX = 0;
+                drawY = (canvasH - drawH) / 2; // 垂直居中
+            } else {
+                // 画布比图片高：高度铺满，宽度截取
+                drawH = canvasH;
+                drawW = canvasH * imgRatio;
+                drawY = 0;
+                drawX = (canvasW - drawW) / 2; // 水平居中
+            }
+            return { x: drawX, y: drawY, w: drawW, h: drawH };
+        }
+
+        /**
+         * ==========================================
+         * 🎬 启动加载动画 (核心渲染循环)
+         * ==========================================
+         */
+        async function startLoadingAnimation() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            // 1. 重置 UI 状态
+            cancelAnimationFrame(animationFrameId);
+            ctx.clearRect(0, 0, canvasW, canvasH);
+            canvas.style.opacity = '1';
+            canvas.style.filter = 'blur(20px) brightness(0.7) saturate(0.5)'; // 初始相机失焦状态
+            progressWrapper.style.opacity = '1';
+            mainContent.style.opacity = '0';
+            mainContent.style.visibility = 'hidden';
+            document.body.style.overflow = 'hidden';
+
+            // 2. 确保两张图片都已加载到内存
+            try {
+                await Promise.all([
+                    loadImage(bgImageObj, defaultBgUrl),
+                    loadImage(maskImageObj, defaultMaskUrl)
+                ]);
+            } catch (e) {
+                console.error("图片加载失败，请检查网络或跨域设置", e);
+                isAnimating = false;
+                return;
+            }
+
+            // 3. 动画参数配置
+            const DURATION = 3500; // 总时长 3.5秒
+            const startTime = performance.now();
+            
+            // 蒙版的初始大小 (以屏幕最小边的百分比计算)
+            const minScreenDim = Math.min(canvasW, canvasH);
+            const START_MASK_SIZE = minScreenDim * 0.15; // 初始只占屏幕 15% 大小
+            const GROW_MASK_SIZE = minScreenDim * 0.5;   // 缓慢放大到 50%
+            const BURST_MASK_SIZE = Math.max(canvasW, canvasH) * 3; // 最终撑爆屏幕的大小
+
+            // 提前计算背景图铺满屏幕的参数 (Cover)
+            const bgDims = getCoverDimensions(bgImageObj.width, bgImageObj.height, canvasW, canvasH);
+
+            // 4. 逐帧渲染函数 (RequestAnimationFrame)
+            function renderFrame(currentTime) {
+                // 计算进度比例 (0 到 1)
+                let progressRatio = (currentTime - startTime) / DURATION;
+                if (progressRatio > 1) progressRatio = 1;
+
+                // --- A. 数据计算层 ---
+
+                // 进度百分比 (使用缓动函数先慢后快)
+                const easeProgress = progressRatio < 0.5 ? 2 * progressRatio * progressRatio : 1 - Math.pow(-2 * progressRatio + 2, 2) / 2;
+                const percent = Math.floor(easeProgress * 100);
+                progressNum.innerText = `${percent}%`;
+
+                // 蒙版大小计算：前 80% 缓慢长大，后 20% 极速爆炸撑破全屏
+                let currentMaskSize;
+                if (progressRatio < 0.8) {
+                    const growPhase = progressRatio / 0.8; // 映射到 0-1
+                    // 使用 sine 曲线平滑生长
+                    currentMaskSize = START_MASK_SIZE + (GROW_MASK_SIZE - START_MASK_SIZE) * Math.sin(growPhase * Math.PI / 2);
+                } else {
+                    const burstPhase = (progressRatio - 0.8) / 0.2; // 映射到 0-1
+                    // 3次方曲线极速膨胀
+                    currentMaskSize = GROW_MASK_SIZE + (BURST_MASK_SIZE - GROW_MASK_SIZE) * Math.pow(burstPhase, 3);
+                }
+
+                // 滤镜效果计算 (模拟相机对焦：模糊减小，亮度/饱和度恢复正常)
+                // 只在前 80% 的过程中进行对焦过渡
+                let filterRatio = progressRatio / 0.8;
+                if(filterRatio > 1) filterRatio = 1;
+                const currentBlur = 20 * (1 - filterRatio); // 20px 降到 0px
+                const currentBrightness = 0.7 + (0.3 * filterRatio); // 0.7 升到 1.0
+                const currentSaturate = 0.5 + (0.5 * filterRatio);   // 0.5 升到 1.0
+                
+                // 将计算好的滤镜应用给 Canvas DOM 元素
+                // 注意：滤镜加在 DOM 上性能极高，且自带硬件加速
+                canvas.style.filter = `blur(${currentBlur}px) brightness(${currentBrightness}) saturate(${currentSaturate})`;
+
+
+                // --- B. Canvas 绘制层 (核心镂空魔法) ---
+                
+                // 1. 清空上一帧
+                ctx.clearRect(0, 0, canvasW, canvasH);
+
+                // 2. 绘制背景图 (铺满全屏)
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.drawImage(bgImageObj, bgDims.x, bgDims.y, bgDims.w, bgDims.h);
+
+                // 3. 关键步骤：设置混合模式为 destination-in
+                // 这个模式的作用是：保留【原有图像(背景)】与【新画图像(蒙版)】重叠的部分。
+                // 也就是用新画的形状，去剪裁底部的背景图。
+                ctx.globalCompositeOperation = 'destination-in';
+
+                // 4. 绘制蒙版形状 (居中，大小动态变化)
+                // 为了保证蒙版图片不变形，我们需要按比例计算绘制宽高
+                const maskRatio = maskImageObj.width / maskImageObj.height;
+                let drawMaskW = currentMaskSize;
+                let drawMaskH = currentMaskSize / maskRatio;
+
+                // 居中坐标
+                const drawMaskX = (canvasW - drawMaskW) / 2;
+                const drawMaskY = (canvasH - drawMaskH) / 2;
+
+                ctx.drawImage(maskImageObj, drawMaskX, drawMaskY, drawMaskW, drawMaskH);
+
+
+                // --- C. 动画循环与结束判定 ---
+                if (progressRatio < 1) {
+                    animationFrameId = requestAnimationFrame(renderFrame);
+                } else {
+                    // 动画结束，执行转场
+                    onLoadComplete();
+                }
+            }
+
+            // 启动第一帧
+            animationFrameId = requestAnimationFrame(renderFrame);
+        }
+
+        // 加载完成后的 DOM 转场
+        function onLoadComplete() {
+            // 隐藏数字
+            progressWrapper.style.opacity = '0';
+            
+            // 此时 Canvas 里的蒙版已经撑满全屏，其实就等于一张完整的背景图了。
+            // 我们可以直接把 Canvas 淡出，同时把真正的网页内容淡入。
+            setTimeout(() => {
+                canvas.style.opacity = '0';
+                
+                mainContent.style.visibility = 'visible';
+                mainContent.style.opacity = '1';
+                document.body.style.overflow = 'auto'; // 恢复滚动
+                
+                isAnimating = false;
+            }, 100); // 稍微延迟一下，让全屏的画面定格一瞬
+        }
+
+        /**
+         * ==========================================
+         * 🎛️ UI 控制面板逻辑 (处理文件上传)
+         * ==========================================
+         */
+        
+        // 背景图上传
+        uploadBgInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('bg-file-name').innerText = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                defaultBgUrl = event.target.result; // 更新默认 URL 为本地 Base64
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 蒙版图上传
+        uploadMaskInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('mask-file-name').innerText = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                defaultMaskUrl = event.target.result; // 更新蒙版 URL
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 重新播放按钮
+        btnRestart.addEventListener('click', () => {
+            // 隐藏真实内容，重启遮罩
+            mainContent.style.opacity = '0';
+            setTimeout(() => {
+                mainContent.style.visibility = 'hidden';
+                startLoadingAnimation();
+            }, 300); // 等待淡出完毕再重新开始
+        });
+
+        // 关闭面板按钮
+        btnClosePanel.addEventListener('click', () => {
+            configPanel.classList.add('panel-hidden');
+        });
+
+        // 页面加载完毕后自动启动一次
+        window.addEventListener('load', () => {
+            // 延迟一点点，确保字体等渲染完毕
+            setTimeout(startLoadingAnimation, 200);
+        });
+
+    </script>
+</body>
+</html>
