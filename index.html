@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Frontend Effects Lab</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); }
+        iframe { border: none; width: 100%; height: 100%; border-radius: 8px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+
+<div id="app" class="p-8">
+    <header class="mb-12 border-b border-gray-800 pb-6">
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+            团队前端特效库
+        </h1>
+        <p class="text-gray-400 mt-2">共积攒了 {{ effects.length }} 个动效作品</p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div v-for="item in effects" :key="item.id" 
+             class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group"
+             @click="openPreview(item)">
+            <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
+                <iframe :src="item.path" class="pointer-events-none scale-75 origin-top"></iframe>
+                <div class="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-0 transition-all"></div>
+            </div>
+            <h3 class="text-lg font-semibold">{{ item.title }}</h3>
+            <div class="flex gap-2 mt-2">
+                <span v-for="tag in item.tags" class="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
+                    {{ tag }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="activeEffect" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-90">
+        <div class="w-full h-full flex flex-col glass rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center">
+                <h2 class="text-xl font-bold">{{ activeEffect.title }}</h2>
+                <div class="flex gap-4">
+                    <button @click="copyCode" class="text-sm bg-blue-600 px-4 py-2 rounded">复制代码</button>
+                    <button @click="activeEffect = null" class="text-xl">✕</button>
+                </div>
+            </div>
+            <div class="flex-1 bg-white">
+                <iframe :src="activeEffect.path"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+    createApp({
+        setup() {
+            const effects = ref([]);
+            const activeEffect = ref(null);
+
+            onMounted(async () => {
+                // 加载自动生成的索引
+                const res = await fetch('./data.json');
+                effects.ref = await res.json();
+            });
+
+            const openPreview = (item) => {
+                activeEffect.value = item;
+            };
+
+            const copyCode = async () => {
+                const res = await fetch(activeEffect.value.path);
+                const code = await res.text();
+                navigator.clipboard.writeText(code);
+                alert('代码已复制到剪贴板！');
+            };
+
+            return { effects, activeEffect, openPreview, copyCode };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

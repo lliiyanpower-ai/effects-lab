@@ -1,0 +1,11 @@
+[
+  {
+    "id": "加载效果",
+    "title": "加载效果",
+    "tags": [
+      "Canvas"
+    ],
+    "description": "交互特效描述",
+    "path": "effects/加载效果/index.html"
+  }
+]
