@@ -21,11 +21,12 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="item in effects" :key="item.id" 
-             @click="openDetail(item.path)"
+             @click="window.open(item.path, '_blank')"
              class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group">
             
             <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                <video class="w-full h-full object-cover" 
+                <video v-if="item.preview"
+                       class="w-full h-full object-cover" 
                        :src="item.preview" 
                        autoplay loop muted playsinline>
                 </video>
@@ -49,26 +50,20 @@ const { createApp } = Vue;
 createApp({
     data() {
         return {
-            effects: [] // 这里只需要存储列表数据
-        }
-    },
-    methods: {
-        // 专门写一个跳转方法，最稳妥
-        openDetail(path) {
-            if (path) {
-                window.open(path, '_blank');
-            }
+            effects: []
         }
     },
     mounted() {
+        // 使用绝对路径的逻辑确保获取
         fetch('./data.json')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('网络响应错误');
+                return res.json();
+            })
             .then(data => {
                 this.effects = data;
             })
-            .catch(err => {
-                console.error("数据加载失败:", err);
-            });
+            .catch(err => console.error("数据加载失败:", err));
     }
 }).mount('#app');
 </script>
