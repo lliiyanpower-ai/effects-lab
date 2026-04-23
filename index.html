@@ -25,9 +25,12 @@
              class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group"
              @click="activeEffect = item">
             <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                <iframe :src="item.path" class="pointer-events-none scale-75 origin-top"></iframe>
-                <div class="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-0 transition-all"></div>
-            </div>
+    <video class="w-full h-full object-cover" 
+           :src="item.preview" 
+           autoplay loop muted playsinline>
+    </video>
+    <div class="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-0 transition-all"></div>
+</div>
             <h3 class="text-lg font-semibold">{{ item.title }}</h3>
             <p class="text-gray-400 text-sm mt-1">{{ item.description }}</p>
             <div class="flex gap-2 mt-2">
