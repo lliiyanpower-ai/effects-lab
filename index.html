@@ -26,9 +26,9 @@
              @click="activeEffect = item">
             <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
     <video class="w-full h-full object-cover" 
-           :src="item.preview" 
-           autoplay loop muted playsinline>
-    </video>
+       :src="item.preview" 
+       autoplay loop muted playsinline>
+</video>
     <div class="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-0 transition-all"></div>
 </div>
             <h3 class="text-lg font-semibold">{{ item.title }}</h3>
