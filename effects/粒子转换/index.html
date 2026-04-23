@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Starlite - 视觉统一透明导出版 v6.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; color: #fff; font-family: sans-serif; }
+        /* 这里的格子背景可以让你实时观察到透明的发光效果 */
+        #canvas-container { 
+            position: absolute; inset: 0; z-index: 1; 
+            background-image: 
+                linear-gradient(45deg, #0a0a0a 25%, transparent 25%), 
+                linear-gradient(-45deg, #0a0a0a 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #0a0a0a 75%), 
+                linear-gradient(-45deg, transparent 75%, #0a0a0a 75%);
+            background-size: 30px 30px;
+            background-position: 0 0, 0 15px, 15px -15px, -15px 0px;
+        }
+        .hud { background: rgba(0, 15, 25, 0.85); backdrop-filter: blur(15px); border: 1px solid rgba(0, 242, 255, 0.2); z-index: 50; border-radius: 12px; pointer-events: auto; }
+        #console { font-family: monospace; font-size: 10px; color: #00f2ff; height: 60px; overflow-y: auto; background: rgba(0,0,0,0.5); padding: 8px; margin-bottom: 12px; border: 1px solid rgba(0, 242, 255, 0.1); }
+        input[type=range] { -webkit-appearance: none; background: rgba(0,242,255,0.1); height: 2px; border-radius: 2px; width: 100%; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: #00f2ff; cursor: pointer; box-shadow: 0 0 8px #00f2ff; }
+        .ctrl-label { font-size: 9px; color: #008fa0; text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold; }
+        .btn-action { background: rgba(0, 242, 255, 0.15); border: 1px solid rgba(0, 242, 255, 0.4); color: #00f2ff; font-size: 10px; padding: 8px; border-radius: 6px; transition: all 0.2s; text-transform: uppercase; width: 100%; }
+        .btn-action:hover { background: rgba(0, 242, 255, 0.3); }
+        input[type=color] { background: transparent; border: none; width: 20px; height: 20px; cursor: pointer; padding: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="relative z-10 p-6 pointer-events-none h-screen flex flex-col justify-start">
+        <div class="hud p-5 w-80 shadow-2xl">
+            <h1 class="text-sm font-bold tracking-[0.2em] text-cyan-400 mb-4 italic text-center">VISUAL SYNC v6.0</h1>
+            
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button onclick="document.getElementById('upload-1').click()" class="btn-action">载入模型 A</button>
+                <button onclick="document.getElementById('upload-2').click()" class="btn-action">载入模型 B</button>
+                <input type="file" id="upload-1" class="hidden" accept=".glb">
+                <input type="file" id="upload-2" class="hidden" accept=".glb">
+            </div>
+
+            <div class="bg-cyan-900/20 p-3 rounded border border-cyan-500/30 mb-4 space-y-3">
+                <p class="ctrl-label !text-cyan-400 mb-2 italic">烟雾交互控制 (Fluid Trail)</p>
+                <div>
+                    <div class="flex justify-between mb-1"><span class="ctrl-label">拖尾持久度</span><span id="fade-val" class="text-[9px] text-cyan-400">0.96</span></div>
+                    <input type="range" id="fade-slider" min="0.80" max="0.99" step="0.01" value="0.96">
+                </div>
+                <div>
+                    <div class="flex justify-between mb-1"><span class="ctrl-label">烟雾粗细</span><span id="rad-val" class="text-[9px] text-cyan-400">0.06</span></div>
+                    <input type="range" id="rad-slider" min="0.01" max="0.2" step="0.01" value="0.06">
+                </div>
+            </div>
+
+            <div class="space-y-3 mb-4 border-b border-white/5 pb-4">
+                <div>
+                    <div class="flex justify-between mb-1"><span class="ctrl-label">流转进度</span><span id="morph-val" class="text-[9px] text-cyan-400">0%</span></div>
+                    <input type="range" id="morph-slider" min="0" max="1" step="0.001" value="0">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center justify-between"><span class="ctrl-label">颜色A</span><input type="color" id="color-a" value="#00d5ff"></div>
+                    <div class="flex items-center justify-between"><span class="ctrl-label">颜色B</span><input type="color" id="color-b" value="#ffcc00"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="flex items-center justify-between"><span class="ctrl-label">缩放A</span><input type="range" id="scale-a" min="0.5" max="2.0" step="0.1" value="1.0" class="!w-16"></div>
+                    <div class="flex items-center justify-between"><span class="ctrl-label">缩放B</span><input type="range" id="scale-b" min="0.5" max="2.0" step="0.1" value="1.0" class="!w-16"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1"><span class="ctrl-label">点尺寸</span><input type="range" id="size-slider" min="0.1" max="1.2" step="0.1" value="0.4"></div>
+                    <div class="space-y-1"><span class="ctrl-label">辉光</span><input type="range" id="bloom-slider" min="0" max="3" step="0.1" value="1.5"></div>
+                </div>
+            </div>
+
+            <button id="btn-png" class="btn-action !bg-cyan-600/40 !border-cyan-300 mb-4 shadow-lg text-white font-bold tracking-widest">导出带辉光透明 PNG</button>
+
+            <div id="console" class="text-cyan-800">>> 视觉同步逻辑已加载。</div>
+            <button id="btn-auto-morph" class="w-full py-2 bg-white/5 text-white text-[9px] border border-white/10 tracking-widest uppercase hover:bg-white/10 transition">自动循环: OFF</button>
+        </div>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.152.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.152.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
+        import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        const TOTAL_COUNT = 250000; 
+        let scene, camera, renderer, composer, bloomPass, particles, material;
+        let targetTransition = 0, currentTransition = 0, isAutoMorph = false;
+        let rawPointsA = null, rawPointsB = null;
+
+        let trailScene, trailCamera, trailTextureA, trailTextureB, trailFadeMaterial, trailBrushMaterial, trailQuad;
+        const mouse = new THREE.Vector2(-10, -10);
+        const trailSize = 1024;
+
+        async function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 1, 5000);
+            camera.position.set(0, 0, 240);
+
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, alpha: true, preserveDrawingBuffer: true 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x000000, 0); 
+            renderer.autoClear = false;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.0);
+            composer.addPass(bloomPass);
+
+            new OrbitControls(camera, renderer.domElement);
+
+            initTrailSystem();
+            createSystem();
+            setupUI();
+            
+            // 确保初始化时 Aspect 正确
+            trailBrushMaterial.uniforms.uAspect.value = window.innerWidth / window.innerHeight;
+            
+            animate();
+            window.addEventListener('mousemove', (e) => {
+                mouse.x = (e.clientX / window.innerWidth);
+                mouse.y = 1.0 - (e.clientY / window.innerHeight);
+            });
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function initTrailSystem() {
+            trailScene = new THREE.Scene();
+            trailCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            const opt = { format: THREE.RedFormat, type: THREE.FloatType };
+            trailTextureA = new THREE.WebGLRenderTarget(trailSize, trailSize, opt);
+            trailTextureB = new THREE.WebGLRenderTarget(trailSize, trailSize, opt);
+            trailFadeMaterial = new THREE.ShaderMaterial({
+                uniforms: { uTexture: { value: null }, uFade: { value: 0.96 } },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`,
+                fragmentShader: `uniform sampler2D uTexture; uniform float uFade; varying vec2 vUv; void main() { gl_FragColor = vec4(texture2D(uTexture, vUv).r * uFade, 0.0, 0.0, 1.0); }`
+            });
+            trailBrushMaterial = new THREE.ShaderMaterial({
+                uniforms: { uMouse: { value: new THREE.Vector2(-1,-1) }, uRadius: { value: 0.06 }, uAspect: { value: 1.0 } },
+                vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`,
+                fragmentShader: `
+                    uniform vec2 uMouse; uniform float uRadius; uniform float uAspect; varying vec2 vUv; 
+                    void main() { 
+                        vec2 uv = vUv; vec2 m = uMouse;
+                        uv.x *= uAspect; m.x *= uAspect; // 正圆计算
+                        float d = distance(uv, m);
+                        gl_FragColor = vec4(smoothstep(uRadius, 0.0, d), 0.0, 0.0, 1.0); 
+                    }`,
+                transparent: true, blending: THREE.AdditiveBlending
+            });
+            trailQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), trailFadeMaterial);
+            trailScene.add(trailQuad);
+        }
+
+        function createSystem() {
+            const geo = new THREE.BufferGeometry();
+            const posA = new Float32Array(TOTAL_COUNT * 3), posB = new Float32Array(TOTAL_COUNT * 3), aSeed = new Float32Array(TOTAL_COUNT);
+            for(let i=0; i<TOTAL_COUNT; i++) {
+                aSeed[i] = Math.random();
+                const theta = Math.random()*Math.PI*2, phi = Math.acos(2*Math.random()-1);
+                posA[i*3] = 60*Math.sin(phi)*Math.cos(theta); posA[i*3+1] = 60*Math.sin(phi)*Math.sin(theta); posA[i*3+2] = 60*Math.cos(phi);
+                posB.set([posA[i*3], posA[i*3+1], posA[i*3+2]], i*3);
+            }
+            geo.setAttribute('position', new THREE.BufferAttribute(posA.slice(), 3));
+            geo.setAttribute('posA', new THREE.BufferAttribute(posA, 3));
+            geo.setAttribute('posB', new THREE.BufferAttribute(posB, 3));
+            geo.setAttribute('aSeed', new THREE.BufferAttribute(aSeed, 1));
+            material = new THREE.ShaderMaterial({
+                uniforms: { uTime: { value: 0 }, uTransition: { value: 0 }, uColorA: { value: new THREE.Color(0x00d5ff) }, uColorB: { value: new THREE.Color(0xffcc00) }, uPointSize: { value: 0.4 }, uTrailMap: { value: null } },
+                vertexShader: `
+                    uniform float uTime, uTransition, uPointSize; uniform vec3 uColorA, uColorB; uniform sampler2D uTrailMap; attribute vec3 posA, posB; attribute float aSeed; varying vec3 vColor;
+                    void main() {
+                        float t = smoothstep(0.0, 1.0, clamp((uTransition - aSeed * 0.4) / 0.6, 0.0, 1.0));
+                        vec3 finalPos = mix(posA, posB, t);
+                        vec4 clipPos = projectionMatrix * modelViewMatrix * vec4(finalPos, 1.0);
+                        vec2 ndcUv = (clipPos.xy / clipPos.w) * 0.5 + 0.5;
+                        float trailData = texture2D(uTrailMap, ndcUv).r;
+                        if(trailData > 0.01) {
+                            float angle = aSeed * 6.28 + trailData * 3.14;
+                            clipPos.xy += vec2(cos(angle), sin(angle)) * trailData * clipPos.w * 0.15;
+                            clipPos.y += trailData * clipPos.w * 0.01 * sin(uTime * 15.0 + aSeed * 50.0); 
+                        }
+                        gl_Position = clipPos; gl_PointSize = uPointSize * (650.0 / -(modelViewMatrix * vec4(finalPos, 1.0)).z); vColor = mix(uColorA, uColorB, t);
+                    }
+                `,
+                fragmentShader: `varying vec3 vColor; void main() { float d = distance(gl_PointCoord, vec2(0.5)); if(d > 0.5) discard; gl_FragColor = vec4(vColor, pow(1.0 - d * 2.0, 1.5)); }`,
+                transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+            });
+            particles = new THREE.Points(geo, material);
+            scene.add(particles);
+        }
+
+        async function sampleToBuffer(file, attrName) {
+            new GLTFLoader().load(URL.createObjectURL(file), (gltf) => {
+                const meshes = [];
+                gltf.scene.updateMatrixWorld(true);
+                gltf.scene.traverse(node => { if (node.isMesh && node.geometry) { let g = node.geometry.clone(); if (g.index) g = g.toNonIndexed(); g.applyMatrix4(node.matrixWorld); meshes.push(new THREE.Mesh(g)); } });
+                const tempPos = new Float32Array(TOTAL_COUNT * 3);
+                const combinedGeo = BufferGeometryUtils.mergeBufferGeometries(meshes.map(m => m.geometry));
+                const sampler = new MeshSurfaceSampler(new THREE.Mesh(combinedGeo)).build();
+                const vAttr = combinedGeo.getAttribute('position'), v = new THREE.Vector3();
+                for (let i = 0; i < TOTAL_COUNT; i++) {
+                    if (i < TOTAL_COUNT * 0.5) v.fromBufferAttribute(vAttr, Math.floor(Math.random() * vAttr.count));
+                    else sampler.sample(v);
+                    tempPos[i * 3] = v.x; tempPos[i * 3 + 1] = v.y; tempPos[i * 3 + 2] = v.z;
+                }
+                const tempGeo = new THREE.BufferGeometry();
+                tempGeo.setAttribute('position', new THREE.BufferAttribute(tempPos, 3));
+                tempGeo.computeBoundingSphere();
+                const scaleFactor = 70 / (tempGeo.boundingSphere.radius || 1), center = tempGeo.boundingSphere.center;
+                for (let i = 0; i < TOTAL_COUNT; i++) {
+                    tempPos[i*3] = (tempPos[i*3]-center.x)*scaleFactor; tempPos[i*3+1] = (tempPos[i*3+1]-center.y)*scaleFactor; tempPos[i*3+2] = (tempPos[i*3+2]-center.z)*scaleFactor;
+                }
+                if(attrName === 'posA') rawPointsA = new Float32Array(tempPos); else rawPointsB = new Float32Array(tempPos);
+                const attr = particles.geometry.getAttribute(attrName);
+                attr.array.set(tempPos); attr.needsUpdate = true;
+            });
+        }
+
+        function applyScale(attrName, raw, val) {
+            if(!raw) return;
+            const data = new Float32Array(raw.length);
+            for(let i=0; i<TOTAL_COUNT; i++) {
+                data[i*3] = raw[i*3]*val; data[i*3+1] = raw[i*3+1]*val; data[i*3+2] = raw[i*3+2]*val;
+            }
+            const attr = particles.geometry.getAttribute(attrName);
+            attr.array.set(data); attr.needsUpdate = true;
+        }
+
+        function setupUI() {
+            // --- 核心修复：保留辉光且重构透明度 ---
+            document.getElementById('btn-png').onclick = () => {
+                // 1. 先用 composer 渲染一帧（此时背景是黑的，但带辉光）
+                composer.render();
+                
+                // 2. 获取渲染数据
+                const w = renderer.domElement.width;
+                const h = renderer.domElement.height;
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                
+                // 3. 将 WebGL 画布内容绘制到临时 Canvas
+                ctx.drawImage(renderer.domElement, 0, 0);
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const data = imgData.data;
+                
+                // 4. 算法修复：根据像素亮度重构 Alpha 通道
+                // 原理：在辉光渲染下，越亮的地方 Alpha 应该越高，纯黑的地方 Alpha 为 0
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    // 计算亮度作为透明度
+                    const brightness = Math.max(r, g, b);
+                    data[i + 3] = brightness; 
+                }
+                
+                ctx.putImageData(imgData, 0, 0);
+                
+                // 5. 导出
+                const link = document.createElement('a');
+                link.download = `Starlite_Glow_Alpha_${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            };
+
+            document.getElementById('fade-slider').oninput = e => {
+                trailFadeMaterial.uniforms.uFade.value = parseFloat(e.target.value);
+                document.getElementById('fade-val').innerText = e.target.value;
+            };
+            document.getElementById('rad-slider').oninput = e => {
+                trailBrushMaterial.uniforms.uRadius.value = parseFloat(e.target.value);
+                document.getElementById('rad-val').innerText = e.target.value;
+            };
+            document.getElementById('scale-a').oninput = e => applyScale('posA', rawPointsA, e.target.value);
+            document.getElementById('scale-b').oninput = e => applyScale('posB', rawPointsB, e.target.value);
+            document.getElementById('upload-1').onchange = e => sampleToBuffer(e.target.files[0], 'posA');
+            document.getElementById('upload-2').onchange = e => sampleToBuffer(e.target.files[0], 'posB');
+            document.getElementById('color-a').oninput = e => material.uniforms.uColorA.value.set(e.target.value);
+            document.getElementById('color-b').oninput = e => material.uniforms.uColorB.value.set(e.target.value);
+            document.getElementById('morph-slider').oninput = e => {
+                targetTransition = parseFloat(e.target.value);
+                document.getElementById('morph-val').innerText = `${Math.round(targetTransition * 100)}%`;
+                isAutoMorph = false;
+            };
+            document.getElementById('size-slider').oninput = e => material.uniforms.uPointSize.value = parseFloat(e.target.value);
+            document.getElementById('bloom-slider').oninput = e => bloomPass.strength = parseFloat(e.target.value);
+            document.getElementById('btn-auto-morph').onclick = function() {
+                isAutoMorph = !isAutoMorph;
+                this.innerText = `自动循环: ${isAutoMorph ? 'ON' : 'OFF'}`;
+            };
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+            trailBrushMaterial.uniforms.uAspect.value = camera.aspect;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001;
+
+            renderer.setClearAlpha(1);
+            trailQuad.material = trailFadeMaterial;
+            trailFadeMaterial.uniforms.uTexture.value = trailTextureA.texture;
+            renderer.setRenderTarget(trailTextureB);
+            renderer.render(trailScene, trailCamera);
+            trailQuad.material = trailBrushMaterial;
+            trailBrushMaterial.uniforms.uMouse.value.copy(mouse);
+            renderer.render(trailScene, trailCamera);
+            let temp = trailTextureA; trailTextureA = trailTextureB; trailTextureB = temp;
+            material.uniforms.uTrailMap.value = trailTextureA.texture;
+            
+            renderer.setRenderTarget(null);
+            renderer.setClearAlpha(0);
+
+            if (isAutoMorph) {
+                targetTransition = (Math.sin(time * 0.5) + 1) / 2;
+                document.getElementById('morph-slider').value = targetTransition;
+                document.getElementById('morph-val').innerText = `${Math.round(targetTransition * 100)}%`;
+            }
+            currentTransition = THREE.MathUtils.lerp(currentTransition, targetTransition, 0.05);
+            material.uniforms.uTransition.value = currentTransition;
+            material.uniforms.uTime.value = time;
+            particles.rotation.y += 0.0015;
+            composer.render();
+        }
+        init();
+    </script>
+</body>
+</html>
