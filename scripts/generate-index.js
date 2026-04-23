@@ -27,7 +27,8 @@ const effectsData = folders.map(folder => {
     return {
         id: folder,
         ...meta,
-        path: `effects/${folder}/index.html`
+        path: `effects/${folder}/index.html`,
+        preview: `effects/${folder}/preview.mp4`
     };
 });
 
