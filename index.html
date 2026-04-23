@@ -24,13 +24,12 @@
         <div v-for="item in effects" :key="item.id" 
              class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group"
              @click="activeEffect = item">
-            <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
-                <video class="w-full h-full object-cover" 
-                       :src="item.preview" 
-                       autoplay loop muted playsinline>
-                </video>
-                <div class="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-0 transition-all"></div>
-            </div>
+            <p class="text-red-500">调试路径: {{ item.preview }}</p>
+
+<video class="w-full h-full object-cover" 
+       :src="item.preview" 
+       autoplay loop muted playsinline>
+</video>
             <h3 class="text-lg font-semibold">{{ item.title }}</h3>
             <p class="text-gray-400 text-sm mt-1">{{ item.description }}</p>
             <div class="flex gap-2 mt-2">
@@ -62,11 +61,12 @@ const { createApp } = Vue;
 createApp({
     data() {
         return {
-            effects: [],       // 存储数据
-            activeEffect: null // 控制弹窗显示
+            effects: [],      // 存储数据
+            activeEffect: null // 当前预览项
         }
     },
     mounted() {
+        // 页面加载时自动获取数据
         fetch('./data.json')
             .then(res => res.json())
             .then(data => {
