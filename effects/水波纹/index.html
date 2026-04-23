@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decay Cards - 三联卡片图像撕裂交互</title>
+    
+    <!-- 引入 GSAP 动画库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        /* =========================================
+           基础重置与全屏背景
+        ========================================= */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background-color: #050505;
+        }
+
+        /* 动态背景层 */
+        .dynamic-background {
+            position: absolute;
+            top: -5%; 
+            left: -5%;
+            width: 110%;
+            height: 110%;
+            /* 默认背景图 */
+            background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            z-index: 0;
+            filter: blur(20px); /* 模糊背景突出卡片 */
+            transition: background-image 0.5s ease;
+        }
+
+        .bg-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.85) 0%, rgba(10,10,20,0.6) 100%);
+            z-index: 1;
+        }
+
+        /* =========================================
+           三卡片容器排版
+        ========================================= */
+        .cards-wrapper {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 40px; /* 卡片之间的间距 */
+            padding-bottom: 50px; /* 给底部控制台留空间 */
+        }
+
+        /* =========================================
+           单张卡片核心样式
+        ========================================= */
+        .decay-card-container {
+            position: relative;
+            /* 三联卡片时稍微缩小单卡尺寸以适应屏幕 */
+            width: 260px;
+            height: 380px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+            cursor: pointer;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.7), 0 0 30px rgba(255,255,255,0.05) inset;
+            border-radius: 12px; 
+            overflow: hidden;
+            /* 防止卡片在动画时出现锯齿边 */
+            transform: translateZ(0); 
+        }
+
+        .decay-card-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* 文字层 */
+        .card-text-overlay {
+            position: relative;
+            z-index: 20;
+            color: white;
+            text-align: center;
+            pointer-events: none;
+            text-transform: uppercase;
+        }
+        
+        .card-text-overlay h2 {
+            font-size: 2.8rem;
+            font-weight: 900;
+            margin: 0;
+            letter-spacing: 1px;
+            text-shadow: 0 10px 25px rgba(0,0,0,0.9);
+            line-height: 1.05;
+        }
+        
+        .card-text-overlay p {
+            font-size: 0.75rem;
+            margin-top: 10px;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.7);
+            font-weight: 600;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+        
+        /* =========================================
+           控制面板 (毛玻璃风格)
+        ========================================= */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 15, 20, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            padding: 16px 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            color: white;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            padding-right: 20px;
+        }
+        .control-group:last-child {
+            border-right: none;
+            padding-right: 0;
+        }
+
+        .controls select {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+            outline: none;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .controls select option {
+            background: #222;
+            color: white;
+        }
+
+        .controls label, .controls button {
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 9px 16px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 8px;
+            color: white;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .controls label:hover, .controls button:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+
+        .controls input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 背景层 -->
+    <div class="dynamic-background" id="pageBackground"></div>
+    <div class="bg-overlay"></div>
+
+    <!-- 三张卡片的容器 -->
+    <div class="cards-wrapper">
+        
+        <!-- 卡片 1 -->
+        <div class="decay-card-container" id="card1">
+            <svg class="decay-card-svg" viewBox="-60 -75 720 900" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <!-- 注意：多个卡片在同一页面，filter ID 必须唯一 -->
+                    <filter id="decayFilter1">
+                        <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="5" seed="1" stitchTiles="stitch" result="turb1" />
+                        <feDisplacementMap id="dispMap1" in="SourceGraphic" in2="turb1" scale="0" xChannelSelector="R" yChannelSelector="B" />
+                    </filter>
+                </defs>
+                <g>
+                    <image id="img1" href="https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?q=80&w=800&auto=format&fit=crop" x="0" y="0" width="600" height="750" filter="url(#decayFilter1)" preserveAspectRatio="xMidYMid slice" />
+                </g>
+            </svg>
+            <div class="card-text-overlay">
+                <h2 id="title1">ABSTRACT<br/>ART</h2>
+                <p>HOVER TO DISTORT</p>
+            </div>
+        </div>
+
+        <!-- 卡片 2 -->
+        <div class="decay-card-container" id="card2">
+            <svg class="decay-card-svg" viewBox="-60 -75 720 900" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <filter id="decayFilter2">
+                        <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="5" seed="2" stitchTiles="stitch" result="turb2" />
+                        <feDisplacementMap id="dispMap2" in="SourceGraphic" in2="turb2" scale="0" xChannelSelector="R" yChannelSelector="B" />
+                    </filter>
+                </defs>
+                <g>
+                    <image id="img2" href="https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?q=80&w=800&auto=format&fit=crop" x="0" y="0" width="600" height="750" filter="url(#decayFilter2)" preserveAspectRatio="xMidYMid slice" />
+                </g>
+            </svg>
+            <div class="card-text-overlay">
+                <h2 id="title2">CYBER<br/>PUNK</h2>
+                <p>HOVER TO DISTORT</p>
+            </div>
+        </div>
+
+        <!-- 卡片 3 -->
+        <div class="decay-card-container" id="card3">
+            <svg class="decay-card-svg" viewBox="-60 -75 720 900" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                    <filter id="decayFilter3">
+                        <feTurbulence type="turbulence" baseFrequency="0.015" numOctaves="5" seed="3" stitchTiles="stitch" result="turb3" />
+                        <feDisplacementMap id="dispMap3" in="SourceGraphic" in2="turb3" scale="0" xChannelSelector="R" yChannelSelector="B" />
+                    </filter>
+                </defs>
+                <g>
+                    <image id="img3" href="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?q=80&w=800&auto=format&fit=crop" x="0" y="0" width="600" height="750" filter="url(#decayFilter3)" preserveAspectRatio="xMidYMid slice" />
+                </g>
+            </svg>
+            <div class="card-text-overlay">
+                <h2 id="title3">NEON<br/>CITY</h2>
+                <p>HOVER TO DISTORT</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 底部控制面板 -->
+    <div class="controls">
+        <!-- 全局控制 -->
+        <div class="control-group">
+            <label for="bgUpload">
+                🌌 换背景图
+                <input type="file" id="bgUpload" accept="image/*">
+            </label>
+        </div>
+
+        <!-- 单卡片控制 -->
+        <div class="control-group">
+            <span style="font-size: 12px; color: #aaa;">目标：</span>
+            <select id="targetSelector">
+                <option value="1">卡片 1 (左)</option>
+                <option value="2" selected>卡片 2 (中)</option>
+                <option value="3">卡片 3 (右)</option>
+            </select>
+            
+            <label for="imageUpload">
+                🖼️ 换图片
+                <input type="file" id="imageUpload" accept="image/*">
+            </label>
+            
+            <button onclick="changeText()">✏️ 换文字</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ==============================================================
+         * 1. Decay Card 面向对象封装
+         * 将每一张卡片的状态和渲染逻辑独立，防止相互干扰。
+         * ==============================================================
+         */
+        class DecayCardInstance {
+            constructor(containerId, mapId) {
+                this.container = document.getElementById(containerId);
+                this.displacementMap = document.getElementById(mapId);
+                
+                // 每张卡片独立的内部状态
+                this.state = { x: 0, y: 0, rz: 0, displacementScale: 0 };
+                
+                // 动画配置参数
+                this.config = {
+                    maxDisplacement: 350, 
+                    movementBound: 40,    
+                    lerpFactor: 0.1,      
+                    decayLerpFactor: 0.08 
+                };
+            }
+
+            // 更新单张卡片的动画帧
+            update(cursor, cachedCursor, winsize) {
+                // A. 物理位移与旋转计算
+                let targetX = this.mapRange(cursor.x, 0, winsize.width, -100, 100);
+                let targetY = this.mapRange(cursor.y, 0, winsize.height, -100, 100);
+                let targetRz = this.mapRange(cursor.x, 0, winsize.width, -8, 8);
+
+                // 平滑插值
+                targetX = this.lerp(this.state.x, targetX, this.config.lerpFactor);
+                targetY = this.lerp(this.state.y, targetY, this.config.lerpFactor);
+                targetRz = this.lerp(this.state.rz, targetRz, this.config.lerpFactor);
+
+                // 软边界限制
+                const bound = this.config.movementBound;
+                if (targetX > bound) targetX = bound + (targetX - bound) * 0.2;
+                if (targetX < -bound) targetX = -bound + (targetX + bound) * 0.2;
+                if (targetY > bound) targetY = bound + (targetY - bound) * 0.2;
+                if (targetY < -bound) targetY = -bound + (targetY + bound) * 0.2;
+
+                this.state.x = targetX;
+                this.state.y = targetY;
+                this.state.rz = targetRz;
+
+                gsap.set(this.container, { x: this.state.x, y: this.state.y, rotationZ: this.state.rz });
+
+                // B. 图像撕裂滤镜计算
+                const travelDist = this.getDistance(cachedCursor.x, cursor.x, cachedCursor.y, cursor.y);
+                const targetDisp = this.mapRange(travelDist, 0, 150, 0, this.config.maxDisplacement);
+                
+                this.state.displacementScale = this.lerp(this.state.displacementScale, targetDisp, this.config.decayLerpFactor);
+                gsap.set(this.displacementMap, { attr: { scale: this.state.displacementScale } });
+            }
+
+            // 工具方法
+            lerp(a, b, n) { return (1 - n) * a + n * b; }
+            mapRange(val, inMin, inMax, outMin, outMax) { return ((val - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin; }
+            getDistance(x1, x2, y1, y2) { return Math.hypot(x1 - x2, y1 - y2); }
+        }
+
+        /**
+         * ==============================================================
+         * 2. 核心渲染与事件循环
+         * ==============================================================
+         */
+        
+        // 实例化三张卡片
+        const cards = [
+            new DecayCardInstance('card1', 'dispMap1'),
+            new DecayCardInstance('card2', 'dispMap2'),
+            new DecayCardInstance('card3', 'dispMap3')
+        ];
+
+        let winsize = { width: window.innerWidth, height: window.innerHeight };
+        let cursor = { x: winsize.width / 2, y: winsize.height / 2 };
+        let cachedCursor = { x: winsize.width / 2, y: winsize.height / 2 };
+
+        window.addEventListener('resize', () => {
+            winsize = { width: window.innerWidth, height: window.innerHeight };
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            cursor.x = e.clientX;
+            cursor.y = e.clientY;
+        });
+
+        // 全局渲染循环，驱动所有卡片
+        function renderLoop() {
+            // 更新每张卡片
+            cards.forEach(card => card.update(cursor, cachedCursor, winsize));
+
+            // 更新全局上一帧鼠标位置
+            cachedCursor.x = cursor.x;
+            cachedCursor.y = cursor.y;
+
+            requestAnimationFrame(renderLoop);
+        }
+        requestAnimationFrame(renderLoop);
+
+        /**
+         * ==============================================================
+         * 3. UI 控制台：替换背景、卡片图、文字
+         * ==============================================================
+         */
+        const bgElement = document.getElementById('pageBackground');
+        const targetSelector = document.getElementById('targetSelector');
+        const cardInput = document.getElementById('imageUpload');
+        const bgInput = document.getElementById('bgUpload');
+
+        // 替换全局背景图
+        bgInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    bgElement.style.backgroundImage = `url('${event.target.result}')`;
+                };
+                reader.readAsDataURL(file);
+            }
+            // 清空 input value 允许重复选同一张图
+            e.target.value = ''; 
+        });
+
+        // 替换特定卡片的图片
+        cardInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    // 获取当前选中的卡片ID (1, 2, 或 3)
+                    const targetId = targetSelector.value;
+                    const targetImg = document.getElementById(`img${targetId}`);
+                    if(targetImg) {
+                        targetImg.setAttribute('href', event.target.result);
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        });
+
+        // 替换特定卡片的文字
+        function changeText() {
+            const targetId = targetSelector.value;
+            const currentTitleEl = document.getElementById(`title${targetId}`);
+            
+            // 将现有的 <br/> 还原为 \n 显示给用户
+            let currentText = currentTitleEl.innerHTML.replace(/<br\s*[\/]?>/gi, "\\n");
+            
+            const newTitle = prompt(`正在修改卡片 ${targetId} 的标题\n请输入新文字 (用 \\n 换行)：`, currentText);
+            if (newTitle !== null) {
+                const formattedHtml = newTitle.replace(/\\n/g, '<br/>');
+                currentTitleEl.innerHTML = formattedHtml;
+            }
+        }
+    </script>
+</body>
+</html>
