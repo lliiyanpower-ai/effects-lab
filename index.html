@@ -17,7 +17,10 @@
         <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
             团队前端特效库
         </h1>
-        <p class="text-gray-400 mt-2">共积攒了 {{ effects.length }} 个动效作品</p>
+       <p class="text-gray-400 mt-2">共积攒了 <span id="effect-count">0</span> 个动效作品</p>
+
+<div id="effects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+    </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -54,49 +57,43 @@
 </div>
 
 <script>
-    const { createApp, ref, onMounted } = Vue;
-    createApp({
-        setup() {
-            const effects = ref([]);
-            const activeEffect = ref(null);
+async function loadEffects() {
+    const container = document.getElementById('effects-container');
+    const countEl = document.getElementById('effect-count');
 
-            onMounted(async () => {
-                // 加载自动生成的索引
-                const res = await fetch('./data.json')
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Network response was not ok');
-    }
-    return response.json();
-  })
-  .then(data => {
-    // 【关键调试】把这行加进去！
-    console.log("成功获取到数据，内容是:", data); 
-    console.log("数据长度是:", data.length);
+    try {
+        // 获取数据，使用相对路径确保在 GitHub Pages 正常
+        const response = await fetch('./data.json');
+        if (!response.ok) throw new Error('无法加载数据');
+        
+        const data = await response.json();
+        
+        // 更新数字
+        if (countEl) countEl.innerText = data.length;
 
-    // 你的渲染逻辑...
-    // document.getElementById('count').innerText = data.length; 
-  })
-  .catch(error => {
-    console.error("加载数据失败，原因是:", error);
-  });
-                effects.ref = await res.json();
-            });
-
-            const openPreview = (item) => {
-                activeEffect.value = item;
-            };
-
-            const copyCode = async () => {
-                const res = await fetch(activeEffect.value.path);
-                const code = await res.text();
-                navigator.clipboard.writeText(code);
-                alert('代码已复制到剪贴板！');
-            };
-
-            return { effects, activeEffect, openPreview, copyCode };
+        // 生成卡片 HTML
+        if (container) {
+            container.innerHTML = data.map(item => `
+                <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                    <h3 class="text-xl font-bold text-gray-800">${item.title}</h3>
+                    <div class="flex gap-2 mt-2">
+                        ${item.tags.map(tag => `<span class="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded">${tag}</span>`).join('')}
+                    </div>
+                    <p class="text-gray-500 mt-3 text-sm line-clamp-2">${item.description}</p>
+                    <a href="${item.path}" class="inline-block mt-4 text-blue-500 font-medium hover:text-blue-700">
+                        查看演示 →
+                    </a>
+                </div>
+            `).join('');
         }
-    }).mount('#app');
+    } catch (err) {
+        console.error('渲染出错:', err);
+        if (container) container.innerHTML = `<p class="text-red-400">加载失败，请刷新重试</p>`;
+    }
+}
+
+// 页面加载完成后执行
+document.addEventListener('DOMContentLoaded', loadEffects);
 </script>
 </body>
 </html>
