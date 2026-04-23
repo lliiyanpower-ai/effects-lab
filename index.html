@@ -24,7 +24,6 @@
         <div v-for="item in effects" :key="item.id" 
              class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group"
              @click="activeEffect = item">
-            <p class="text-red-500">调试路径: {{ item.preview }}</p>
 
 <video class="w-full h-full object-cover" 
        :src="item.preview" 
