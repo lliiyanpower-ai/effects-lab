@@ -18,5 +18,15 @@
     "description": "交互特效描述",
     "path": "effects/水波纹/index.html",
     "preview": "effects/水波纹/preview.mp4"
+  },
+  {
+    "id": "粒子转换",
+    "title": "粒子转换",
+    "tags": [
+      "Canvas"
+    ],
+    "description": "交互特效描述",
+    "path": "effects/粒子转换/index.html",
+    "preview": "effects/粒子转换/preview.mp4"
   }
 ]
