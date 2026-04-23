@@ -1,11 +1,10 @@
 [
   {
-    "id": "加载效果",
-    "title": "加载效果",
-    "tags": [
-      "Canvas"
-    ],
-    "description": "交互特效描述",
-    "path": "effects/加载效果/index.html"
+    "id": 1,
+    "title": "炫酷加载动画",
+    "description": "基于 Canvas 的粒子加载效果",
+    "tags": ["Canvas", "Loading"],
+    "path": "effects/loading-1/index.html",
+    "preview": "effects/loading-1/preview.mp4" 
   }
 ]
