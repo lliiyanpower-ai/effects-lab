@@ -6,7 +6,15 @@
       "Canvas"
     ],
     "description": "交互特效描述",
-    "path": "effects/加载效果/index.html",
-    "preview": "effects/加载效果/preview.mp4"
+    "path": "effects/加载效果/index.html"
+  },
+  {
+    "id": "水波纹",
+    "title": "水波纹",
+    "tags": [
+      "Canvas"
+    ],
+    "description": "交互特效描述",
+    "path": "effects/水波纹/index.html"
   }
 ]
