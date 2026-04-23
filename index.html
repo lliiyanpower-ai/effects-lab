@@ -20,9 +20,10 @@
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div v-for="item in effects" :key="item.id" 
-             @click="openDetail(item.path)"
-             class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all cursor-pointer group">
+        <a v-for="item in effects" :key="item.id" 
+           :href="item.path" 
+           target="_blank"
+           class="glass border border-gray-700 p-4 rounded-xl hover:border-blue-500 transition-all block group">
             
             <div class="h-48 bg-gray-800 rounded-lg mb-4 overflow-hidden relative">
                 <video class="w-full h-full object-cover" 
@@ -39,7 +40,7 @@
                     {{ tag }}
                 </span>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
@@ -49,16 +50,7 @@ const { createApp } = Vue;
 createApp({
     data() {
         return {
-            effects: [],
-            activeEffect: null // 保留此变量以维持 Vue 实例稳定
-        }
-    },
-    methods: {
-        // 通过方法跳转，避免在模板里找不到 window 的问题
-        openDetail(path) {
-            if (path) {
-                window.open(path, '_blank');
-            }
+            effects: []
         }
     },
     mounted() {
